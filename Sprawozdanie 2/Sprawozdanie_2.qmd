@@ -1,0 +1,252 @@
+---
+title: "Sprawozdanie 2"
+format: html
+editor: visual
+---
+
+```{r}
+library('tidyverse')
+library(DescTools)
+```
+
+```{r}
+# Parametry
+n <- 5             # Liczba prób
+p0 <- 0.1          # Hipoteza zerowa
+alpha <- 0.05      # Poziom istotności
+p_values <- seq(0, 1, length.out = 100)  # Wartości p do testowania
+n_sim <- 500     # Liczba symulacji Monte Carlo
+
+```
+
+```{r}
+# Define the function for Wilson test
+test_proportion_wilson <- function(x, n, alpha = 0.05, p0 = 0.1) {
+  # Validate inputs
+  if (x > n || x < 0) {
+    stop("Invalid input: x must be between 0 and n.")
+  }
+  if (n <= 0) {
+    stop("Invalid input: n must be greater than 0.")
+  }
+
+  # Calculate confidence interval for Wilson method
+  wilson_ci <- BinomCI(x, n, conf.level = 1 - alpha, method = "wilson")
+
+  # Extract upper bound of confidence interval
+  wilson_upper <- wilson_ci[2]
+
+  # Perform hypothesis test
+  wilson_test <- ifelse(wilson_upper > p0, "Reject H0", "Fail to Reject H0")
+
+  # Return results as a list
+  return(list(CI = wilson_ci, Test_Result = wilson_test))
+}
+
+```
+
+```{r}
+# Define the function for Clopper-Pearson test
+test_proportion_clopper <- function(x, n, alpha = 0.05, p0 = 0.1) {
+  # Validate inputs
+  if (x > n || x < 0) {
+    stop("Invalid input: x must be between 0 and n.")
+  }
+  if (n <= 0) {
+    stop("Invalid input: n must be greater than 0.")
+  }
+
+  # Calculate confidence interval for Clopper-Pearson method
+  clopper_ci <- BinomCI(x, n, conf.level = 1 - alpha, method = "clopper-pearson")
+
+  # Extract upper bound of confidence interval
+  clopper_upper <- clopper_ci[2]
+
+  # Perform hypothesis test
+  clopper_test <- ifelse(clopper_upper > p0, "Reject H0", "Fail to Reject H0")
+
+  # Return results as a list
+  return(list(CI = clopper_ci, Test_Result = clopper_test))
+}
+```
+
+```{r}
+# Define the function for Jeffreys test
+test_proportion_jeffreys <- function(x, n, alpha = 0.05, p0 = 0.1) {
+  # Validate inputs
+  if (x > n || x < 0) {
+    stop("Invalid input: x must be between 0 and n.")
+  }
+  if (n <= 0) {
+    stop("Invalid input: n must be greater than 0.")
+  }
+
+  # Calculate confidence interval for Jeffreys method
+  jeffreys_ci <- BinomCI(x, n, conf.level = 1 - alpha, method = "jeffreys")
+
+  # Extract upper bound of confidence interval
+  jeffreys_upper <- jeffreys_ci[2]
+
+  # Perform hypothesis test
+  jeffreys_test <- ifelse(jeffreys_upper > p0, "Reject H0", "Fail to Reject H0")
+
+  # Return results as a list
+  return(list(CI = jeffreys_ci, Test_Result = jeffreys_test))
+}
+
+```
+
+```{r}
+# Example usage
+# x: number of successes, n: number of trials
+wilson_results <- test_proportion_wilson(x = 12, n = 100)
+clopper_results <- test_proportion_clopper(x = 12, n = 100)
+jeffreys_results <- test_proportion_jeffreys(x = 12, n = 100)
+
+print(wilson_results)
+print(clopper_results)
+print(jeffreys_results)
+```
+
+```{r}
+# Monte Carlo Simulation for Power Curves: Wilson Test
+simulate_power_wilson <- function(p_values, n, alpha = 0.05, p0 = 0.1, n_sim = 1000) {
+  power_wilson <- numeric(length(p_values))
+
+  for (i in seq_along(p_values)) {
+    p <- p_values[i]
+    rejections_wilson <- 0
+
+    for (sim in 1:n_sim) {
+      x <- rbinom(1, size = n, prob = p)
+      wilson_result <- test_proportion_wilson(x, n, alpha, p0)
+      if (wilson_result$Test_Result == "Reject H0") {
+        rejections_wilson <- rejections_wilson + 1
+      }
+    }
+
+    power_wilson[i] <- rejections_wilson / n_sim
+  }
+
+  return(power_wilson)
+}
+```
+
+```{r}
+# Monte Carlo Simulation for Power Curves: Clopper-Pearson Test
+simulate_power_clopper <- function(p_values, n, alpha = 0.05, p0 = 0.1, n_sim = 1000) {
+  power_clopper <- numeric(length(p_values))
+
+  for (i in seq_along(p_values)) {
+    p <- p_values[i]
+    rejections_clopper <- 0
+
+    for (sim in 1:n_sim) {
+      x <- rbinom(1, size = n, prob = p)
+      clopper_result <- test_proportion_clopper(x, n, alpha, p0)
+      if (clopper_result$Test_Result == "Reject H0") {
+        rejections_clopper <- rejections_clopper + 1
+      }
+    }
+
+    power_clopper[i] <- rejections_clopper / n_sim
+  }
+
+  return(power_clopper)
+}
+
+```
+
+```{r}
+# Monte Carlo Simulation for Power Curves: Jeffreys Test
+simulate_power_jeffreys <- function(p_values, n, alpha = 0.05, p0 = 0.1, n_sim = 1000) {
+  power_jeffreys <- numeric(length(p_values))
+
+  for (i in seq_along(p_values)) {
+    p <- p_values[i]
+    rejections_jeffreys <- 0
+
+    for (sim in 1:n_sim) {
+      x <- rbinom(1, size = n, prob = p)
+      jeffreys_result <- test_proportion_jeffreys(x, n, alpha, p0)
+      if (jeffreys_result$Test_Result == "Reject H0") {
+        rejections_jeffreys <- rejections_jeffreys + 1
+      }
+    }
+
+    power_jeffreys[i] <- rejections_jeffreys / n_sim
+  }
+
+  return(power_jeffreys)
+}
+```
+
+```{r}
+# Generate power curves for B(5,p)
+set.seed(123)
+p_values <- seq(0, 1, length.out = 100)
+n <- 5         # Liczba prób
+p0 <- 0.1          # Hipoteza zerowa
+alpha <- 0.05      # Poziom istotności
+n_sim <- 500     # Liczba symulacji Monte Carlo
+
+
+power_wilson <- simulate_power_wilson(p_values, n, alpha, p0, n_sim)
+power_clopper <- simulate_power_clopper(p_values, n, alpha, p0, n_sim)
+power_jeffreys <- simulate_power_jeffreys(p_values, n, alpha, p0, n_sim)
+
+# Plot power curves
+plot(p_values, power_wilson, type = "l", col = "red", lwd = 2,
+     xlab = "p", ylab = "Power", main = "Power Curves for Different Tests")
+lines(p_values, power_clopper, col = "blue", lwd = 2)
+lines(p_values, power_jeffreys, col = "green", lwd = 2)
+legend("bottomright", legend = c("Wilson", "Clopper-Pearson", "Jeffreys"),
+       col = c("red", "blue", "green"), lwd = 2)
+```
+
+```{r}
+# Generate power curves for B(30,p)
+set.seed(123)
+p_values <- seq(0, 1, length.out = 100)
+n <- 30
+# Liczba prób
+p0 <- 0.1          # Hipoteza zerowa
+alpha <- 0.05      # Poziom istotności
+n_sim <- 500     # Liczba symulacji Monte Carlo
+
+
+power_wilson <- simulate_power_wilson(p_values, n, alpha, p0, n_sim)
+power_clopper <- simulate_power_clopper(p_values, n, alpha, p0, n_sim)
+power_jeffreys <- simulate_power_jeffreys(p_values, n, alpha, p0, n_sim)
+
+# Plot power curves
+plot(p_values, power_wilson, type = "l", col = "red", lwd = 2,
+     xlab = "p", ylab = "Power", main = "Power Curves for Different Tests")
+lines(p_values, power_clopper, col = "blue", lwd = 2)
+lines(p_values, power_jeffreys, col = "green", lwd = 2)
+legend("bottomright", legend = c("Wilson", "Clopper-Pearson", "Jeffreys"),
+       col = c("red", "blue", "green"), lwd = 2)
+```
+
+```{r}
+# Generate power curves for B(250,p)
+set.seed(123)
+p_values <- seq(0, 1, length.out = 100)
+n <- 250           # Liczba prób
+p0 <- 0.1          # Hipoteza zerowa
+alpha <- 0.05      # Poziom istotności
+n_sim <- 500     # Liczba symulacji Monte Carlo
+
+
+power_wilson <- simulate_power_wilson(p_values, n, alpha, p0, n_sim)
+power_clopper <- simulate_power_clopper(p_values, n, alpha, p0, n_sim)
+power_jeffreys <- simulate_power_jeffreys(p_values, n, alpha, p0, n_sim)
+
+# Plot power curves
+plot(p_values, power_wilson, type = "l", col = "red", lwd = 2,
+     xlab = "p", ylab = "Power", main = "Power Curves for Different Tests")
+lines(p_values, power_clopper, col = "blue", lwd = 2)
+lines(p_values, power_jeffreys, col = "green", lwd = 2)
+legend("bottomright", legend = c("Wilson", "Clopper-Pearson", "Jeffreys"),
+       col = c("red", "blue", "green"), lwd = 2)
+```
