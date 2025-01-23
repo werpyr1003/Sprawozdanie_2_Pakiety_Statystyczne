@@ -1,0 +1,130 @@
+---
+title: "Sprawozdanie 2"
+format: html
+editor: visual
+---
+
+```{r, echo = FALSE}
+library('tidyverse')
+library(DescTools)
+```
+
+```{r, echo=FALSE}
+# Define the function for test
+test_proportion <- function(x, n, alpha = 0.05, p0 = 0.1, method = "wilson") {
+  if (x > n || x < 0) {
+    stop("Invalid input: x must be between 0 and n.")
+  }
+  if (n <= 0) {
+    stop("Invalid input: n must be greater than 0.")
+  }
+  
+  ci <- BinomCI(x, n, conf.level = 1 - alpha, method = method)
+
+  lower <- ci[2]
+
+  test <- ifelse(lower > p0, "Reject H0", "Fail to Reject H0")
+
+  return(list(CI = ci, Test_Result = test))
+}
+```
+
+```{r, echo=FALSE}
+# Monte Carlo Simulation for Power Curves
+simulate_power <- function(p_values, n, alpha = 0.05, p0 = 0.1, n_sim = 1000, method = "wilson") {
+  power <- numeric(length(p_values))
+
+  for (i in seq_along(p_values)) {
+    p <- p_values[i]
+    rejections <- 0
+
+    for (sim in 1:n_sim) {
+      x <- rbinom(1, size = n, prob = p)
+      result <- test_proportion(x, n, alpha, p0, method)
+      if (result$Test_Result == "Reject H0") {
+        rejections <- rejections + 1
+      }
+    }
+
+    power[i] <- rejections / n_sim
+  }
+
+  return(power)
+}
+```
+
+ZADANIE 1
+
+```{r, echo=FALSE}
+# Generate power curves for B(5,p)
+set.seed(123)
+p_values <- seq(0, 1, length.out = 100)
+n <- 5         # Liczba prób
+p0 <- 0.1          # Hipoteza zerowa
+alpha <- 0.05      # Poziom istotności
+n_sim <- 1000     # Liczba symulacji Monte Carlo
+
+
+power_wilson <- simulate_power(p_values, n, alpha, p0, n_sim, "wilson")
+power_clopper <- simulate_power(p_values, n, alpha, p0, n_sim, "clopper-pearson")
+power_jeffreys <- simulate_power(p_values, n, alpha, p0, n_sim,"jeffreys")
+
+# Plot power curves
+plot(p_values, power_wilson, type = "l", col = "red", lwd = 2,
+     xlab = "p", ylab = "Power", main = "Power Curves for Different Tests")
+lines(p_values, power_clopper, col = "blue", lwd = 2)
+lines(p_values, power_jeffreys, col = "green", lwd = 2)
+legend("bottomright", legend = c("Wilson", "Clopper-Pearson", "Jeffreys"),
+       col = c("red", "blue", "green"), lwd = 2)
+```
+
+ZADANIE 2
+
+```{r, echo=FALSE}
+# Generate power curves for B(30,p)
+set.seed(123)
+p_values <- seq(0, 1, length.out = 100)
+n <- 30
+# Liczba prób
+p0 <- 0.1          # Hipoteza zerowa
+alpha <- 0.05      # Poziom istotności
+n_sim <- 1000     # Liczba symulacji Monte Carlo
+
+
+power_wilson <- simulate_power(p_values, n, alpha, p0, n_sim, "wilson")
+power_clopper <- simulate_power(p_values, n, alpha, p0, n_sim, "clopper-pearson")
+power_jeffreys <- simulate_power(p_values, n, alpha, p0, n_sim,"jeffreys")
+
+# Plot power curves
+plot(p_values, power_wilson, type = "l", col = "red", lwd = 2,
+     xlab = "p", ylab = "Power", main = "Power Curves for Different Tests")
+lines(p_values, power_clopper, col = "blue", lwd = 2)
+lines(p_values, power_jeffreys, col = "green", lwd = 2)
+legend("bottomright", legend = c("Wilson", "Clopper-Pearson", "Jeffreys"),
+       col = c("red", "blue", "green"), lwd = 2)
+```
+
+ZADANIE 3
+
+```{r, echo=FALSE}
+# Generate power curves for B(250,p)
+set.seed(123)
+p_values <- seq(0, 1, length.out = 100)
+n <- 250           # Liczba prób
+p0 <- 0.1          # Hipoteza zerowa
+alpha <- 0.05      # Poziom istotności
+n_sim <- 1000     # Liczba symulacji Monte Carlo
+
+
+power_wilson <- simulate_power(p_values, n, alpha, p0, n_sim, "wilson")
+power_clopper <- simulate_power(p_values, n, alpha, p0, n_sim, "clopper-pearson")
+power_jeffreys <- simulate_power(p_values, n, alpha, p0, n_sim,"jeffreys")
+
+# Plot power curves
+plot(p_values, power_wilson, type = "l", col = "red", lwd = 2,
+     xlab = "p", ylab = "Power", main = "Power Curves for Different Tests")
+lines(p_values, power_clopper, col = "blue", lwd = 2)
+lines(p_values, power_jeffreys, col = "green", lwd = 2)
+legend("bottomright", legend = c("Wilson", "Clopper-Pearson", "Jeffreys"),
+       col = c("red", "blue", "green"), lwd = 2)
+```
