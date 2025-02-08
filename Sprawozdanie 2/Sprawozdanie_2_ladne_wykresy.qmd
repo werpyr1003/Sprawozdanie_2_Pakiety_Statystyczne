@@ -1,0 +1,237 @@
+---
+title: "Sprawozdanie 2"
+author: "Weronika Pyrtak, \n Katarzyna Rudzińska"
+date: "\today"
+format: html
+editor: visual
+---
+
+## Wstęp
+
+Sparwozdanie ma na celu analizę testów na poziomie istotności \$\\alpha = 0.05\$ służących do testowania następującej hipotezy statystycznej:
+
+-   $H_0: p = 0.1$
+
+    przeciwko
+
+-   $H_1: p > 0.1$.
+
+Do przeprowadzenia testowania hipotezy wykorzystamy trzy różne metody konstrukcji przedziałów ufności dla proporcji:
+
+```{r, echo = FALSE, message = FALSE}
+library('tidyverse')
+library(DescTools)
+```
+
+1.  **Test oparty o przedział Wilsona**
+
+    Jest to test bazujący na przedziale ufności Wilsona, który został wprowadzony przez Wilsona (1927). Przedział ten jest uzyskiwany przez odwrócenie testu w oparciu o normalne przybliżenie błędu standardowego, ale zamiast oszacowanego błędu standardowego wykorzystuje standardowy błąd przy założeniu hipotezy zerowej. Formuła przedziału Wilsona wygląda następująco:
+
+$$
+CI_W = \tilde{p} \pm z \sqrt{\frac{\tilde{p}(1 - \tilde{p})}{\tilde{n}}},
+$$ $$
+\tilde{p} = \frac{x + z^2 / 2}{n + z^2},
+$$ $$
+\tilde{n} = n + z^2,
+$$
+
+$$
+z \text{ – wartość krytyczna z rozkładu normalnego odpowiadająca } \frac{\alpha}{2},
+$$ $$
+\tilde{p} \text{ – oszacowanie proporcji uwzględniające korektę,}
+$$ $$
+\tilde{n} \text{ – skorygowana liczba prób.}
+$$
+
+2.  **Test oparty o przedział Cloppera-Pearsona**
+
+    Ten test bazuje na tzw. "dokładnym" przedziale Cloppera-Pearsona, który opiera się na odwróceniu testu dwumianowego o równych ogonach. Przedział jest definiowany jako rozwiązanie równań:
+
+$$
+L_{CP}(x) = \text{Beta}_{\alpha/2}(x, n - x + 1),
+$$ $$
+U_{CP}(x) = \text{Beta}_{1 - \alpha/2}(x + 1, n - x),
+$$
+
+$$
+x \text{ – liczba sukcesów,}
+$$ $$
+n \text{ – liczba prób,}
+$$ $$
+\text{Beta}_q(m_1, m_2) \text{ – } q\text{-kwantyl rozkładu beta z parametrami } m_1 \text{ i } m_2.
+$$
+
+3.  **Test oparty o przedział Jeffreysa**
+
+    Przedział Jeffreysa bazuje na podejściu bayesowskim z użyciem nieinformacyjnego rozkładu prior Beta(1/2,1/2). Przedział jest równomiernie odciętym przedziałem bayesowskim:
+
+$$
+L_J(x) = \text{Beta}_{\alpha/2}(x + 1/2, n - x + 1/2),
+$$ $$
+U_J(x) = \text{Beta}_{1 - \alpha/2}(x + 1/2, n - x + 1/2),
+$$
+
+$$
+x \text{ – liczba sukcesów,}
+$$ $$
+n \text{ – liczba prób,}
+$$ $$
+\text{Beta}_q(m_1, m_2) \text{ – } q\text{-kwantyl rozkładu beta z parametrami } m_1 \text{ i } m_2.
+$$
+
+Celem analizy jest ocena skuteczności powyższych testów w zależności od wartości badanego parametru w przedziale $p \in (0,1)$, zakładając, że liczba sukcesów $S \sim B(n,p)$ jest losowana z rozkładu dwumianowego.
+
+**Funkcja mocy testu**
+
+Funkcja mocy testu to prawdopodobieństwo odrzucenia hipotezy zerowej, gdy hipoteza alternatywna jest prawdziwa. Wartość funkcji mocy dla punktów $p \in (0,1)$ określa moc testu przy alternatywnej hipotezie $p > 0.1$ . Funkcja ta mierzy skuteczność testu w wykryaniu rzeczywistego efektu.
+
+Test jest jednostajnie najmocniejszy w danej rodzinie testów, jeśli jest równie mocny lub mocniejszy od każdego innego testu rozważanego dla wszystkich wartości punktów p.
+
+## Rozwiązanie zadań
+
+Do obliczeń wykorzystamy funkcję `BinomCI` z pakietu `DescTools`, która pozwala na estymację przedziałów ufności dla dwumianowej proporcji przy użyciu różnych metod.
+
+```{r, echo=FALSE}
+# Define the function for test
+test_proportion <- function(x, n, alpha = 0.05, p0 = 0.1, method = "wilson") {
+  if (x > n || x < 0) {
+    stop("Invalid input: x must be between 0 and n.")
+  }
+  if (n <= 0) {
+    stop("Invalid input: n must be greater than 0.")
+  }
+  
+  ci <- BinomCI(x, n, conf.level = 1 - alpha, method = method)
+
+  lower <- ci[2]
+
+  test <- ifelse(lower > p0, "Reject H0", "Fail to Reject H0")
+
+  return(list(CI = ci, Test_Result = test))
+}
+```
+
+```{r, echo=FALSE}
+# Monte Carlo Simulation for Power Curves
+simulate_power <- function(p_values, n, alpha = 0.05, p0 = 0.1, n_sim = 1000, method = "wilson") {
+  power <- numeric(length(p_values))
+
+  for (i in seq_along(p_values)) {
+    p <- p_values[i]
+    rejections <- 0
+
+    for (sim in 1:n_sim) {
+      x <- rbinom(1, size = n, prob = p)
+      result <- test_proportion(x, n, alpha, p0, method)
+      if (result$Test_Result == "Reject H0") {
+        rejections <- rejections + 1
+      }
+    }
+
+    power[i] <- rejections / n_sim
+  }
+
+  return(power)
+}
+```
+
+#### Zadanie 1
+
+```{r, echo=FALSE}
+# Generate power curves for B(5,p)
+set.seed(123)
+p_values <- seq(0, 1, length.out = 2000)
+n <- 5         # Liczba prób
+p0 <- 0.1          # Hipoteza zerowa
+alpha <- 0.05      # Poziom istotności
+n_sim <- 10000     # Liczba symulacji Monte Carlo
+
+
+power_wilson <- simulate_power(p_values, n, alpha, p0, n_sim, "wilson")
+power_clopper <- simulate_power(p_values, n, alpha, p0, n_sim, "clopper-pearson")
+power_jeffreys <- simulate_power(p_values, n, alpha, p0, n_sim,"jeffreys")
+
+# Plot power curves
+plot(p_values, power_wilson, type = "l", col = "red", lwd = 2,
+     xlab = "p", ylab = "Power", main = "Power Curves for Different Tests")
+lines(p_values, power_clopper, col = "blue", lwd = 2)
+lines(p_values, power_jeffreys, col = "green", lwd = 2)
+legend("bottomright", legend = c("Wilson", "Clopper-Pearson", "Jeffreys"),
+       col = c("red", "blue", "green"), lwd = 2)
+```
+
+Wyniki symulacji Monte Carlo, przedstawione na wykresie, pokazują funkcje mocy dla trzech różnych testów opartych na przedziałach ufności: Wilsona, Cloppera-Pearsona i Jeffreysa, przy liczności próby $n=5$
+
+Dla wartości $p$ bliskich hipotezie zerowej $p=0.1$ wszystkie trzy testy mają moc zbliżoną do poziomu istotności $α=0.05$, co świadczy o ich poprawnej kalibracji przy założeniu, że hipoteza zerowa jest prawdziwa. W tym zakresie różnice pomiędzy testami są minimalne i mają niewielki wpływ na ich zastosowanie.
+
+Gdy wartości pp wyraźnie przekraczają $p_0=0.1$, test Wilsona osiąga najwyższą moc spośród trzech testów. Oznacza to, że jest najbardziej skuteczny w odrzucaniu hipotezy zerowej, gdy parametr pp odbiega od wartości określonej w $H_0$​. Testy Cloppera-Pearsona i Jeffreysa mają niemal identyczną funkcję mocy i osiągają niższą moc niż test Wilsona w całym zakresie wartości $p>0.1$. Sugeruje to, że test Wilsona jest bardziej efektywny w tej sytuacji, szczególnie gdy zależy nam na szybszym wzroście mocy testu.
+
+Dla wartości pp bliskich 1 wszystkie testy osiągają bardzo wysoką moc , co oznacza, że przy dużym odchyleniu od $p_0$ są one równie skuteczne w odrzucaniu hipotezy zerowej. Różnice między nimi w tym zakresie stają się marginalne.
+
+Porównując poszczególne testy, widać, że test Wilsona wyraźnie przewyższa dwa pozostałe testy pod względem szybkości wzrostu mocy, co czyni go najlepszym wyborem w tej sytuacji.
+
+#### Zadanie 2
+
+```{r, echo=FALSE}
+# Generate power curves for B(30,p)
+set.seed(123)
+p_values <- seq(0, 1, length.out = 2000)
+n <- 30           # Liczba prób
+p0 <- 0.1          # Hipoteza zerowa
+alpha <- 0.05      # Poziom istotności
+n_sim <- 10000     # Liczba symulacji Monte Carlo
+
+
+power_wilson <- simulate_power(p_values, n, alpha, p0, n_sim, "wilson")
+power_clopper <- simulate_power(p_values, n, alpha, p0, n_sim, "clopper-pearson")
+power_jeffreys <- simulate_power(p_values, n, alpha, p0, n_sim,"jeffreys")
+
+# Plot power curves
+plot(p_values, power_wilson, type = "l", col = "red", lwd = 2,
+     xlab = "p", ylab = "Power", main = "Power Curves for Different Tests")
+lines(p_values, power_clopper, col = "blue", lwd = 2)
+lines(p_values, power_jeffreys, col = "green", lwd = 2)
+legend("bottomright", legend = c("Wilson", "Clopper-Pearson", "Jeffreys"),
+       col = c("red", "blue", "green"), lwd = 2)
+```
+
+Analizując funkcje mocy testów przy $n=30$, widzimy, że testy Wilsona i Jeffreysa mają niemal identyczne wyniki. Oznacza to, że oba testy mają bardzo zbliżoną zdolność do odrzucenia hipotezy zerowej $H_0 : p=0.1$, gdy prawdziwa wartość p odbiega od wartości wynikającej z hipotezy. Test Cloppera-Pearsona ma zauważalnie niższą moc, co sugeruje, że jest bardziej konserwatywny – mniej skłonny do odrzucania $H_0$​, nawet jeśli $H_1​$ jest prawdziwe. Wszystkie testy mają podobną moc bliską poziomowi istotności $α=0.05$ w pobliżu wartości $p_0$​, co jest oczekiwanym zachowaniem wynikającym z konstrukcji testów. Różnice między nimi stają się widoczne, gdy $p$ oddala się od $p_0$.
+
+Moc testu Cloppera-Pearsona jest niższa w całym zakresie $p$, co sugeruje, że metoda ta jest bardziej konserwatywna. Metoda Cloppera-Pearsona konstruuje przedziały ufności poprzez dokładne podejście. Choć daje gwarancję zachowania poziomu istotności, prowadzi do bardziej konserwatywnych wyników, co skutkuje niższą mocą testu w porównaniu z Wilsonem i Jeffreysem.
+
+#### Zadanie 3
+
+```{r, echo=FALSE}
+# Generate power curves for B(250,p)
+set.seed(123)
+p_values <- seq(0, 1, length.out = 2000)
+n <- 250           # Liczba prób
+p0 <- 0.1          # Hipoteza zerowa
+alpha <- 0.05      # Poziom istotności
+n_sim <- 10000     # Liczba symulacji Monte Carlo
+
+
+power_wilson <- simulate_power(p_values, n, alpha, p0, n_sim, "wilson")
+power_clopper <- simulate_power(p_values, n, alpha, p0, n_sim, "clopper-pearson")
+power_jeffreys <- simulate_power(p_values, n, alpha, p0, n_sim,"jeffreys")
+
+# Plot power curves
+plot(p_values, power_wilson, type = "l", col = "red", lwd = 2,
+     xlab = "p", ylab = "Power", main = "Power Curves for Different Tests")
+lines(p_values, power_clopper, col = "blue", lwd = 2)
+lines(p_values, power_jeffreys, col = "green", lwd = 2)
+legend("bottomright", legend = c("Wilson", "Clopper-Pearson", "Jeffreys"),
+       col = c("red", "blue", "green"), lwd = 2)
+```
+
+Dla $n=250$ , wszystkie trzy testy – Wilsona, Cloppera-Pearsona i Jeffreysa – mają niemal identyczne funkcje mocy. Na przedstawionym wykresie widać, że krzywe dla wszystkich testów idealnie się pokrywają, co wskazuje, że testy te działają w praktyce w taki sam sposób dla tej wielkości próby. Wyniki sugerują, że dla bardzo dużych próbek różnice między testami stają się minimalne. Przy tej liczebności próby moc testów jest zdominowana przez informację statystyczną zawartą w danych, a różnice wynikające z konstrukcji przedziałów ufności poszczególnych testów stają się pomijalne.
+
+## Podsumowanie
+
+Na podstawie wyżej przeprowadzonych analiz można wywnioskować:
+
+Otrzymane wyniki ukazują, w jaki sposób moc testów statystycznych zależy od liczebności próby. Te dane umożliwiają bardziej świadome i precyzyjne wybieranie testów do sprawdzania hipotez. Taki dobór pozwala na lepsze dostosowanie metod do określonych warunków analitycznych, co prowadzi do większej efektywności i dokładności wniosków.
+
+Bibliografia:
+
+-   Brown, L. D., Cai, T. T., & DasGupta, A. (2001). *Interval Estimation for a Binomial Proportion*. Statistical Science, 16(2), 101–133.
